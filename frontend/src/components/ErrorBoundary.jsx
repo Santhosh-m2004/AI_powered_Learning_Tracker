@@ -1,0 +1,103 @@
+import { Component } from 'react';
+import { FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { 
+      hasError: false, 
+      error: null,
+      errorInfo: null 
+    };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+    
+    // Log error to error reporting service
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+          <div className="max-w-md w-full text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 
+                          bg-red-100 dark:bg-red-900/30 rounded-full mb-6">
+              <FiAlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Something went wrong
+            </h2>
+            
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              We apologize for the inconvenience. The application encountered an error.
+            </p>
+
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 
+                          dark:border-red-800 rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-1">
+                Error Details:
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-400 font-mono truncate">
+                {this.state.error?.toString() || 'Unknown error'}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={this.handleReset}
+                className="inline-flex items-center justify-center px-4 py-2 
+                         bg-blue-600 text-white rounded-lg hover:bg-blue-700 
+                         transition-colors"
+              >
+                <FiRefreshCw className="w-4 h-4 mr-2" />
+                Reload Application
+              </button>
+              
+              <button
+                onClick={() => window.history.back()}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 
+                         text-gray-800 dark:text-gray-300 rounded-lg 
+                         hover:bg-gray-300 dark:hover:bg-gray-600 
+                         transition-colors"
+              >
+                Go Back
+              </button>
+            </div>
+
+            <p className="mt-6 text-sm text-gray-500 dark:text-gray-500">
+              If the problem persists, please contact support.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export const withErrorBoundary = (Component) => {
+  return (props) => (
+    <ErrorBoundary>
+      <Component {...props} />
+    </ErrorBoundary>
+  );
+};
+
+export default ErrorBoundary;
