@@ -27,15 +27,16 @@ const AIInsights = () => {
       return;
     }
 
+    const payload = {
+      subjects: insights?.insights?.subjects || [],
+      weakSubjects: insights?.insights?.weakSubjects || [],
+      dailyGoal: insights?.insights?.dailyGoal || null,
+      learningStyle: insights?.insights?.learningStyle || null,
+    };
+
     setGeneratingPlan(true);
     try {
-      await API.post('/ai/generate-plan', {
-        subjects: ['Mathematics', 'Programming', 'Physics'],
-        weakSubjects: insights?.insights?.weakSubjects || [],
-        dailyGoal: 120,
-        learningStyle: 'visual',
-      });
-
+      await API.post('/ai/generate-plan', payload);
       toast.success('Study plan generated!');
     } catch (error) {
       toast.error('Failed to generate study plan');
@@ -47,8 +48,14 @@ const AIInsights = () => {
   const getWeakSubjects = async () => {
     try {
       const response = await API.get('/ai/weak-subjects');
+      setInsights(prev => ({
+        ...prev,
+        insights: {
+          ...prev?.insights,
+          weakSubjects: response.data.weakSubjects,
+        }
+      }));
       toast.success('Weak subjects analyzed');
-      return response.data;
     } catch (error) {
       toast.error('Failed to analyze weak subjects');
     }
@@ -78,7 +85,7 @@ const AIInsights = () => {
                 Motivation
               </h3>
               <p className="text-gray-700 dark:text-gray-300">
-                {insights?.motivation || 'Stay consistent and keep improving daily.'}
+                {insights?.motivation}
               </p>
             </div>
 
@@ -89,8 +96,7 @@ const AIInsights = () => {
                   Recommendations
                 </h3>
                 <p className="text-gray-700 dark:text-gray-300">
-                  {insights?.insights?.recommendations ||
-                    'Focus on consistent daily practice'}
+                  {insights?.insights?.recommendations}
                 </p>
               </div>
 
@@ -100,16 +106,14 @@ const AIInsights = () => {
                   Study Tips
                 </h3>
                 <p className="text-gray-700 dark:text-gray-300">
-                  {insights?.insights?.studyTips ||
-                    'Use spaced repetition for better retention'}
+                  {insights?.insights?.studyTips}
                 </p>
               </div>
             </div>
           </div>
         ) : (
           <p className="text-gray-500 text-center py-8">
-            Click "Get AI Insights" to analyze your learning patterns and get
-            personalized recommendations.
+            Click "Get AI Insights" to analyze your learning patterns and get personalized recommendations.
           </p>
         )}
       </div>
@@ -118,8 +122,7 @@ const AIInsights = () => {
         <div className="card">
           <h3 className="text-lg font-semibold mb-4">Generate Study Plan</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Get a personalized study plan based on your learning patterns and
-            goals.
+            Get a personalized study plan based on your learning patterns and goals.
           </p>
           <button
             onClick={generateStudyPlan}
@@ -131,9 +134,7 @@ const AIInsights = () => {
         </div>
 
         <div className="card">
-          <h3 className="text-lg font-semibold mb-4">
-            Weak Subjects Analysis
-          </h3>
+          <h3 className="text-lg font-semibold mb-4">Weak Subjects Analysis</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Identify areas that need more focus based on your performance data.
           </p>

@@ -11,15 +11,12 @@ dotenv.config();
 const seedDatabase = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
 
-    // Clear existing data
     await User.deleteMany({});
     await LearningSession.deleteMany({});
     await StudyPlan.deleteMany({});
     await Note.deleteMany({});
 
-    // Create admin user
     const adminPassword = await bcrypt.hash('admin123', 10);
     const adminUser = await User.create({
       name: 'Admin User',
@@ -33,7 +30,6 @@ const seedDatabase = async () => {
       }
     });
 
-    // Create regular user
     const userPassword = await bcrypt.hash('user123', 10);
     const regularUser = await User.create({
       name: 'Test User',
@@ -52,7 +48,6 @@ const seedDatabase = async () => {
       }
     });
 
-    // Create sample learning sessions
     const sampleSessions = [
       {
         user: regularUser._id,
@@ -60,7 +55,7 @@ const seedDatabase = async () => {
         topic: 'Calculus - Derivatives',
         timeSpent: 60,
         difficulty: 'hard',
-        date: new Date(Date.now() - 86400000), // Yesterday
+        date: new Date(Date.now() - 86400000),
         productivityScore: 8,
         tags: ['calculus', 'derivatives', 'advanced']
       },
@@ -80,7 +75,7 @@ const seedDatabase = async () => {
         topic: 'Quantum Mechanics',
         timeSpent: 90,
         difficulty: 'hard',
-        date: new Date(Date.now() - 2 * 86400000), // 2 days ago
+        date: new Date(Date.now() - 2 * 86400000),
         productivityScore: 7,
         tags: ['quantum', 'physics', 'advanced']
       },
@@ -98,7 +93,6 @@ const seedDatabase = async () => {
 
     await LearningSession.insertMany(sampleSessions);
 
-    // Create sample study plans
     const samplePlans = [
       {
         user: regularUser._id,
@@ -140,13 +134,14 @@ const seedDatabase = async () => {
 
     await StudyPlan.insertMany(samplePlans);
 
-    // Create sample notes
     const sampleNotes = [
       {
         user: regularUser._id,
         title: 'Calculus Notes',
-        content: 'Key concepts in differential calculus including limits, derivatives, and applications.',
-        aiSummary: 'Covers fundamental calculus concepts: limits, derivatives, chain rule, optimization, and related rates problems.',
+        content:
+          'Key concepts in differential calculus including limits, derivatives, and applications.',
+        aiSummary:
+          'Covers fundamental calculus concepts: limits, derivatives, chain rule, optimization, and related rates problems.',
         tags: ['calculus', 'mathematics', 'derivatives'],
         subject: 'Mathematics',
         fileType: 'text'
@@ -154,8 +149,10 @@ const seedDatabase = async () => {
       {
         user: adminUser._id,
         title: 'React Best Practices',
-        content: 'Collection of React best practices including component structure, state management, and performance optimization.',
-        aiSummary: 'React development guidelines covering component design, hooks usage, state management patterns, and performance optimization techniques.',
+        content:
+          'Collection of React best practices including component structure, state management, and performance optimization.',
+        aiSummary:
+          'React development guidelines covering component design, hooks usage, state management patterns, and performance optimization techniques.',
         tags: ['react', 'frontend', 'best-practices'],
         subject: 'Programming',
         fileType: 'text'
@@ -164,23 +161,17 @@ const seedDatabase = async () => {
 
     await Note.insertMany(sampleNotes);
 
-    console.log('✅ Database seeded successfully!');
-    console.log('📋 Admin credentials: admin@example.com / admin123');
-    console.log('👤 User credentials: user@example.com / user123');
-    console.log('\n🎯 Features available:');
-    console.log('   • 4 sample learning sessions');
-    console.log('   • 1 sample study plan');
-    console.log('   • 2 sample notes');
-    console.log('   • Admin and regular user accounts');
+    console.log('Database seeded successfully');
+    console.log('Admin: admin@example.com / admin123');
+    console.log('User: user@example.com / user123');
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seeding failed:', error);
+    console.error(error);
     process.exit(1);
   }
 };
 
-// Handle script execution
 if (import.meta.url === `file://${process.argv[1]}`) {
   seedDatabase();
 }

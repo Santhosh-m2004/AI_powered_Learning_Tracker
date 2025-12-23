@@ -10,7 +10,7 @@ import {
 
 const Sidebar = () => {
   const navItems = [
-    { path: '/', icon: FiHome, label: 'Dashboard' },
+    { path: '/', icon: FiHome, label: 'Dashboard', exact: true },
     { path: '/learning', icon: FiBook, label: 'Learning Tracker' },
     { path: '/planner', icon: FiCalendar, label: 'Study Planner' },
     { path: '/notes', icon: FiFileText, label: 'Notes & Resources' },
@@ -19,13 +19,16 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+    <aside
+      className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+      aria-label="Sidebar navigation"
+    >
       <nav className="mt-6">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            end
+            end={item.exact}
             className={({ isActive }) =>
               `sidebar-link ${isActive ? 'active' : ''}`
             }
@@ -35,23 +38,6 @@ const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
-
-      <div className="mt-8 px-4">
-        <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-800 dark:text-blue-300">
-            Today's Goal
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            120 minutes of focused study
-          </p>
-          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-600 h-2 rounded-full"
-              style={{ width: '65%' }}
-            ></div>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 };

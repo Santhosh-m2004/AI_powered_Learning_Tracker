@@ -15,11 +15,12 @@ import AIInsights from '../components/AIInsights.jsx';
 import API from '../api/axios.js';
 import { Link } from 'react-router-dom';
 
-
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
   const [todayPlan, setTodayPlan] = useState(null);
+  const [weeklyChart, setWeeklyChart] = useState([]);
+  const [subjectChart, setSubjectChart] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -33,30 +34,30 @@ const Dashboard = () => {
         API.get('/plans/today')
       ]);
 
-      setStats(statsRes.data);
-      setRecentSessions(sessionsRes.data.sessions);
-      setTodayPlan(planRes.data);
+      const statsData = statsRes.data || {};
+
+      setStats(statsData);
+      setRecentSessions(sessionsRes.data.sessions || []);
+      setTodayPlan(planRes.data || null);
+
+      // Convert weekly breakdown to recharts format
+      const weeklyData = (statsData.weeklyBreakdown || []).map((item) => ({
+        day: item.day,
+        studyTime: item.minutes || 0
+      }));
+      setWeeklyChart(weeklyData);
+
+      // Convert subject distribution to recharts format
+      const subjectData = (statsData.subjectDistribution || []).map((s) => ({
+        name: s.subject,
+        value: s.minutes || 0
+      }));
+      setSubjectChart(subjectData);
+
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     }
   };
-
-  const chartData = [
-    { day: 'Mon', studyTime: 120 },
-    { day: 'Tue', studyTime: 90 },
-    { day: 'Wed', studyTime: 150 },
-    { day: 'Thu', studyTime: 80 },
-    { day: 'Fri', studyTime: 200 },
-    { day: 'Sat', studyTime: 180 },
-    { day: 'Sun', studyTime: 60 }
-  ];
-
-  const subjectData = [
-    { name: 'Math', value: 300 },
-    { name: 'Programming', value: 450 },
-    { name: 'Physics', value: 200 },
-    { name: 'English', value: 150 }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -67,21 +68,22 @@ const Dashboard = () => {
         
         <main className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
+
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatsCard
                 icon={FiBook}
                 title="Total Sessions"
                 value={stats?.totalSessions || 0}
-                change={12}
                 color="bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300"
               />
               
               <StatsCard
                 icon={FiClock}
                 title="Total Time"
-                value={`${stats ? (stats.totalTime / 60).toFixed(1) : 0}h`}
-                change={8}
+                value={
+                  stats ? `${(stats.totalTime / 60).toFixed(1)}h` : '0h'
+                }
                 color="bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300"
               />
               
@@ -102,8 +104,8 @@ const Dashboard = () => {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <TimeSpentChart data={chartData} />
-              <SubjectDistributionChart data={subjectData} />
+              <TimeSpentChart data={weeklyChart} />
+              <SubjectDistributionChart data={subjectChart} />
             </div>
 
             <div className="mb-8">
@@ -112,6 +114,7 @@ const Dashboard = () => {
 
             {/* Today's Plan & Recent Sessions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
               {/* Today's Plan */}
               <div className="card">
                 <div className="flex items-center justify-between mb-4">
@@ -135,29 +138,33 @@ const Dashboard = () => {
                           <h4 className="font-medium">{task.topic}</h4>
                           <p className="text-sm text-gray-500">{task.subject}</p>
                         </div>
+
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-500">
                             {task.estimatedTime} min
                           </span>
+
+                          {/* placeholder handler */}
                           <input
                             type="checkbox"
                             checked={task.completed}
+                            readOnly
                             className="w-4 h-4 rounded"
-                            onChange={() => {}}
                           />
                         </div>
                       </div>
                     ))}
-                    <button className="w-full btn-secondary mt-4">
+
+                    <Link to="/planner" className="w-full btn-secondary mt-4 inline-block text-center">
                       View Full Plan
-                    </button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <p>No plan for today</p>
-                    <button className="btn-primary mt-4">
+                    <Link to="/planner" className="btn-primary mt-4 inline-block">
                       Create Daily Plan
-                    </button>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -186,7 +193,9 @@ const Dashboard = () => {
                           <p className="text-sm text-gray-500">{session.topic}</p>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium">{session.timeSpent} min</div>
+                          <div className="font-medium">
+                            {session.timeSpent} min
+                          </div>
                           <div className="text-xs text-gray-500">
                             {new Date(session.date).toLocaleDateString()}
                           </div>
@@ -203,10 +212,12 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
+
             </div>
 
             {/* AI Insights */}
             <AIInsights />
+
           </div>
         </main>
       </div>

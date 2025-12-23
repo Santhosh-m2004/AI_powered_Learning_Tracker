@@ -17,6 +17,9 @@ import {
 import API from '../api/axios.js';
 
 export const TimeSpentChart = ({ data }) => {
+  if (!data || data.length === 0)
+    return <div className="card"><p>No weekly study data available.</p></div>;
+
   return (
     <div className="card">
       <h3 className="text-lg font-semibold mb-4">Weekly Study Time</h3>
@@ -27,7 +30,7 @@ export const TimeSpentChart = ({ data }) => {
           <YAxis label={{ value: 'Minutes', angle: -90, position: 'insideLeft' }} />
           <Tooltip />
           <Legend />
-          <Bar dataKey="studyTime" fill="#3b82f6" name="Study Time" />
+          <Bar dataKey="studyTime" fill="#2563eb" name="Study Time" />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -35,7 +38,10 @@ export const TimeSpentChart = ({ data }) => {
 };
 
 export const SubjectDistributionChart = ({ data }) => {
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  if (!data || data.length === 0)
+    return <div className="card"><p>No subject distribution data available.</p></div>;
+
+  const COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed'];
 
   return (
     <div className="card">
@@ -47,13 +53,12 @@ export const SubjectDistributionChart = ({ data }) => {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={(entry) => `${entry.name}: ${entry.value}min`}
-            outerRadius={80}
-            fill="#8884d8"
+            label={(entry) => `${entry.name || 'Unknown'}: ${entry.value || 0} min`}
+            outerRadius={85}
             dataKey="value"
           >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            {data.map((_, index) => (
+              <Cell key={index} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
           <Tooltip />
@@ -74,19 +79,25 @@ export const ProgressChart = () => {
   const fetchProgressData = async () => {
     try {
       const response = await API.get('/learning/stats');
-      const dailyStats = response.data.dailyStats || [];
-      
-      const formattedData = dailyStats.map(day => ({
-        date: day._id,
-        time: day.totalTime,
-        sessions: day.sessions
+
+      const dailyStats = Array.isArray(response.data?.dailyStats)
+        ? response.data.dailyStats
+        : [];
+
+      const formattedData = dailyStats.map((day) => ({
+        date: day._id || '',
+        time: day.totalTime || 0,
+        sessions: day.sessions || 0
       }));
-      
+
       setProgressData(formattedData);
     } catch (error) {
       console.error('Failed to fetch progress data:', error);
     }
   };
+
+  if (progressData.length === 0)
+    return <div className="card"><p>No learning progress data available.</p></div>;
 
   return (
     <div className="card">
@@ -103,14 +114,14 @@ export const ProgressChart = () => {
             yAxisId="left"
             type="monotone"
             dataKey="time"
-            stroke="#3b82f6"
+            stroke="#2563eb"
             name="Study Time (min)"
           />
           <Line
             yAxisId="right"
             type="monotone"
             dataKey="sessions"
-            stroke="#10b981"
+            stroke="#059669"
             name="Sessions"
           />
         </LineChart>

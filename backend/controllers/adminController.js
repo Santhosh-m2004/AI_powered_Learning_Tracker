@@ -68,29 +68,34 @@ export const getAnalytics = async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const dailyActivity = await LearningSession.aggregate([
-      {
-        $match: {
-          date: { $gte: thirtyDaysAgo }
-        }
+  {
+    $match: {
+      date: { $gte: thirtyDaysAgo }
+    }
+  },
+  {
+    $group: {
+      _id: {
+        day: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+        actualDate: "$date"
       },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          sessions: { $sum: 1 },
-          totalTime: { $sum: "$timeSpent" },
-          users: { $addToSet: "$user" }
-        }
-      },
-      {
-        $project: {
-          date: "$_id",
-          sessions: 1,
-          totalTime: 1,
-          activeUsers: { $size: "$users" }
-        }
-      },
-      { $sort: { date: 1 } }
-    ]);
+      sessions: { $sum: 1 },
+      totalTime: { $sum: "$timeSpent" },
+      users: { $addToSet: "$user" }
+    }
+  },
+  {
+    $project: {
+      date: "$_id.day",
+      actualDate: "$_id.actualDate",
+      sessions: 1,
+      totalTime: 1,
+      activeUsers: { $size: "$users" }
+    }
+  },
+  { $sort: { actualDate: 1 } }
+]);
+
     
     // User engagement metrics
     const activeUsers = await LearningSession.aggregate([

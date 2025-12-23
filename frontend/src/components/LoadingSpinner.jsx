@@ -15,17 +15,13 @@ const LoadingSpinner = ({ size = 'md', color = 'primary', fullScreen = false }) 
     white: 'border-white'
   };
 
+  const appliedSize = sizeClasses[size] || sizeClasses.md;
+  const appliedColor = colorClasses[color] || colorClasses.primary;
+
   const spinner = (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center" role="status" aria-live="polite">
       <div
-        className={`
-          ${sizeClasses[size]}
-          border-4 ${colorClasses[color]}
-          border-t-transparent
-          rounded-full
-          animate-spin
-        `}
-        role="status"
+        className={`border-4 ${appliedColor} ${appliedSize} border-t-transparent rounded-full animate-spin`}
         aria-label="Loading"
       >
         <span className="sr-only">Loading...</span>
@@ -35,8 +31,7 @@ const LoadingSpinner = ({ size = 'md', color = 'primary', fullScreen = false }) 
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 
-                      backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
         {spinner}
       </div>
     );
@@ -50,7 +45,7 @@ export const LoadingPage = () => (
     <div className="text-center">
       <LoadingSpinner size="xl" />
       <p className="mt-4 text-gray-600 dark:text-gray-400 animate-pulse">
-        Loading your learning dashboard...
+        Loading...
       </p>
     </div>
   </div>
@@ -67,7 +62,7 @@ export const LoadingCard = ({ message = 'Loading...' }) => (
 
 export const SkeletonLoader = ({ type = 'card', count = 1 }) => {
   const CardSkeleton = () => (
-    <div className="card space-y-4">
+    <div className="card space-y-4" role="status" aria-live="polite">
       <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
       <div className="space-y-3">
         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -78,7 +73,7 @@ export const SkeletonLoader = ({ type = 'card', count = 1 }) => {
   );
 
   const TableSkeleton = () => (
-    <div className="card">
+    <div className="card" role="status" aria-live="polite">
       <div className="space-y-4">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex space-x-4 animate-pulse">

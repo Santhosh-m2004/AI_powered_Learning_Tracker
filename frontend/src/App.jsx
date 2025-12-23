@@ -19,41 +19,58 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <Routes>
+            {/* Auth Pages */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/learning" element={
-              <ProtectedRoute>
-                <LearningTracker />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/planner" element={
-              <ProtectedRoute>
-                <StudyPlanner />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/notes" element={
-              <ProtectedRoute>
-                <Notes />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin" element={
-              <ProtectedRoute>
+
+            {/* Protected User Pages */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/learning"
+              element={
+                <ProtectedRoute>
+                  <LearningTracker />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/planner"
+              element={
+                <ProtectedRoute>
+                  <StudyPlanner />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/notes"
+              element={
+                <ProtectedRoute>
+                  <Notes />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Page — No ProtectedRoute wrapper */}
+            <Route
+              path="/admin"
+              element={
                 <AdminRoute>
                   <Admin />
                 </AdminRoute>
-              </ProtectedRoute>
-            } />
-            
+              }
+            />
+
+            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>

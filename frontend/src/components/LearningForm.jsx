@@ -4,18 +4,19 @@ import API from '../api/axios.js';
 
 const LearningForm = ({ onSuccess, initialData = {} }) => {
   const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     subject: initialData.subject || '',
     topic: initialData.topic || '',
     timeSpent: initialData.timeSpent || '',
     difficulty: initialData.difficulty || 'medium',
     notes: initialData.notes || '',
-    tags: initialData.tags?.join(', ') || ''
+    tags: initialData.tags ? initialData.tags.join(', ') : ''
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -23,10 +24,23 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
     setLoading(true);
 
     try {
+      const parsedTime = parseInt(formData.timeSpent, 10);
+      if (isNaN(parsedTime) || parsedTime <= 0) {
+        toast.error("Time spent must be a positive number.");
+        setLoading(false);
+        return;
+      }
+
       const dataToSend = {
-        ...formData,
-        timeSpent: parseInt(formData.timeSpent),
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        subject: formData.subject.trim(),
+        topic: formData.topic.trim(),
+        difficulty: formData.difficulty,
+        notes: formData.notes.trim(),
+        timeSpent: parsedTime,
+        tags: formData.tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0)
       };
 
       if (initialData._id) {
@@ -37,6 +51,7 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
         toast.success('Session added successfully');
       }
 
+      // Reset only after success
       setFormData({
         subject: '',
         topic: '',
@@ -56,6 +71,7 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Subject *</label>
@@ -66,7 +82,6 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
             onChange={handleChange}
             className="input-field"
             required
-            placeholder="e.g., Mathematics, Programming"
           />
         </div>
 
@@ -79,14 +94,15 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
             onChange={handleChange}
             className="input-field"
             required
-            placeholder="e.g., Calculus, React Hooks"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Time Spent (minutes) *</label>
+          <label className="block text-sm font-medium mb-1">
+            Time Spent (minutes) *
+          </label>
           <input
             type="number"
             name="timeSpent"
@@ -95,7 +111,6 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
             className="input-field"
             required
             min="1"
-            placeholder="e.g., 45"
           />
         </div>
 
@@ -122,7 +137,6 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
           value={formData.tags}
           onChange={handleChange}
           className="input-field"
-          placeholder="e.g., important, review, project (comma separated)"
         />
       </div>
 
@@ -133,7 +147,6 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
           value={formData.notes}
           onChange={handleChange}
           className="input-field h-32"
-          placeholder="Add any additional notes..."
         />
       </div>
 
@@ -143,9 +156,14 @@ const LearningForm = ({ onSuccess, initialData = {} }) => {
           disabled={loading}
           className="btn-primary px-6 py-2"
         >
-          {loading ? 'Saving...' : initialData._id ? 'Update Session' : 'Add Session'}
+          {loading
+            ? 'Saving...'
+            : initialData._id
+            ? 'Update Session'
+            : 'Add Session'}
         </button>
       </div>
+
     </form>
   );
 };

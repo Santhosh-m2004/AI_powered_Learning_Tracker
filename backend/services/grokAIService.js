@@ -8,63 +8,66 @@ class GrokAIService {
 
   async analyzeLearningData(learningData) {
     try {
-      const prompt = `Analyze the following learning data and provide insights:
-        Total sessions: ${learningData.totalSessions}
-        Total time spent: ${learningData.totalTime} minutes
-        Subjects: ${JSON.stringify(learningData.subjects)}
-        Average difficulty: ${learningData.avgDifficulty}
-        
-        Provide insights on:
-        1. Weak subjects based on time spent vs performance
-        2. Best times for studying
-        3. Recommendations for improvement
-        4. Weekly study plan suggestions`;
+      const prompt = `
+Analyze the following learning data and provide structured insights:
+Total sessions: ${learningData.totalSessions}
+Total time spent: ${learningData.totalTime} minutes
+Subjects: ${JSON.stringify(learningData.subjects)}
+Average difficulty: ${learningData.avgDifficulty}
+
+Provide:
+Weak subjects
+Best times for studying
+Recommendations
+Weekly plan suggestions
+`;
 
       const response = await this.makeRequest(prompt);
       return this.parseAIResponse(response);
-    } catch (error) {
-      console.error('Grok AI analysis error:', error);
+    } catch {
       throw new Error('AI analysis failed');
     }
   }
 
   async generateStudyPlan(userData, preferences) {
     try {
-      const prompt = `Generate a personalized study plan for a student with the following data:
-        Available time per day: ${preferences.dailyGoal} minutes
-        Subjects to focus on: ${preferences.subjects.join(', ')}
-        Weak areas: ${preferences.weakSubjects.join(', ')}
-        Learning style: ${preferences.learningStyle}
-        
-        Create a detailed weekly plan with:
-        1. Daily study schedule
-        2. Topic breakdown
-        3. Recommended resources
-        4. Review sessions`;
+      const prompt = `
+Generate a personalized weekly study plan:
+Daily available time: ${preferences.dailyGoal} minutes
+Subjects: ${preferences.subjects.join(', ')}
+Weak areas: ${preferences.weakSubjects.join(', ')}
+Learning style: ${preferences.learningStyle}
+
+Include:
+Daily schedule
+Topic breakdown
+Recommended resources
+Review sessions
+`;
 
       const response = await this.makeRequest(prompt, 0.7);
       return this.parseStudyPlan(response);
-    } catch (error) {
-      console.error('Grok AI study plan error:', error);
+    } catch {
       throw new Error('Study plan generation failed');
     }
   }
 
   async summarizeNotes(content) {
     try {
-      const prompt = `Summarize the following notes concisely, highlighting key points and concepts:
-        ${content}
-        
-        Provide a structured summary with:
-        1. Main topics covered
-        2. Key concepts
-        3. Important formulas/theorems
-        4. Study recommendations`;
+      const prompt = `
+Summarize the following notes concisely:
+${content}
+
+Include:
+Main topics
+Key concepts
+Important formulas
+Study advice
+`;
 
       const response = await this.makeRequest(prompt, 0.3);
-      return response.choices[0].message.content;
-    } catch (error) {
-      console.error('Grok AI summarization error:', error);
+      return response.choices?.[0]?.message?.content || '';
+    } catch {
       return 'AI summary unavailable';
     }
   }
@@ -72,16 +75,18 @@ class GrokAIService {
   async getMotivationalMessage() {
     try {
       const prompts = [
-        "Give an inspirational quote about learning and growth",
-        "Provide motivational advice for students",
-        "Share an encouraging message about persistence in studies"
+        "Give an inspirational quote about learning.",
+        "Provide motivational study advice.",
+        "Share an encouraging message for students."
       ];
-      
-      const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
-      const response = await this.makeRequest(randomPrompt, 0.9);
-      
-      return response.choices[0].message.content;
-    } catch (error) {
+
+      const response = await this.makeRequest(
+        prompts[Math.floor(Math.random() * prompts.length)],
+        0.9
+      );
+
+      return response.choices?.[0]?.message?.content || '';
+    } catch {
       return "Keep learning, every step counts!";
     }
   }
@@ -92,17 +97,17 @@ class GrokAIService {
       {
         model: "grok-beta",
         messages: [
-          { role: "system", content: "You are an AI learning assistant specialized in educational guidance and study planning." },
+          { role: "system", content: "You are an AI learning assistant." },
           { role: "user", content: prompt }
         ],
-        temperature: temperature,
+        temperature,
         max_tokens: 1000,
         stream: false
       },
       {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json"
         }
       }
     );
@@ -111,31 +116,25 @@ class GrokAIService {
   }
 
   parseAIResponse(response) {
-    const content = response.choices[0].message.content;
-    
-    // Parse structured response
-    const insights = {
+    const content = response.choices?.[0]?.message?.content || '';
+
+    return {
       weakSubjects: this.extractSection(content, 'Weak subjects'),
       recommendations: this.extractSection(content, 'Recommendations'),
       studyTips: this.extractSection(content, 'Study tips'),
       productivityScore: this.extractProductivityScore(content)
     };
-
-    return insights;
   }
 
   parseStudyPlan(response) {
-    const content = response.choices[0].message.content;
-    
-    // Convert AI response to structured plan
-    const plan = {
+    const content = response.choices?.[0]?.message?.content || '';
+
+    return {
       dailySchedule: this.extractDailySchedule(content),
       topics: this.extractTopics(content),
       resources: this.extractResources(content),
       duration: '1 week'
     };
-
-    return plan;
   }
 
   extractSection(content, sectionName) {
@@ -145,40 +144,43 @@ class GrokAIService {
   }
 
   extractProductivityScore(content) {
-    const regex = /productivity score[:\s]*(\d+)/i;
-    const match = content.match(regex);
+    const match = content.match(/productivity score[:\s]*(\d+)/i);
     return match ? parseInt(match[1]) : 7;
   }
 
   extractDailySchedule(content) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     const schedule = {};
-    
+
     days.forEach(day => {
-      const regex = new RegExp(`${day}[:\\s]+([\\s\\S]*?)(?=\\n\\n|\\n[A-Z]|$)`, 'i');
+      const regex = new RegExp(`${day}[:\\s]+([\\s\\S]*?)(?=\\n[A-Z]|$)`, 'i');
       const match = content.match(regex);
       schedule[day.toLowerCase()] = match ? match[1].trim() : '';
     });
-    
+
     return schedule;
   }
 
   extractTopics(content) {
-    const topicRegex = /Topics?[:\\s]+([\\s\\S]*?)(?=\\n\\n|Resources:|$)/
-    const match = content.match(topicRegex);
-    if (match) {
-      return match[1].split('\n').map(topic => topic.replace(/^[•\-]\s*/, '').trim()).filter(Boolean);
-    }
-    return [];
+    const regex = /Topics?[:\s]+([\s\S]*?)(?=\n\n|Resources:|$)/i;
+    const match = content.match(regex);
+    if (!match) return [];
+
+    return match[1]
+      .split('\n')
+      .map(t => t.replace(/^[•\-]\s*/, '').trim())
+      .filter(Boolean);
   }
 
   extractResources(content) {
-    const resourceRegex = /Resources?[:\\s]+([\\s\\S]*?)(?=\\n\\n|$)/
-    const match = content.match(resourceRegex);
-    if (match) {
-      return match[1].split('\n').map(resource => resource.replace(/^[•\-]\s*/, '').trim()).filter(Boolean);
-    }
-    return [];
+    const regex = /Resources?[:\s]+([\s\S]*?)(?=\n\n|$)/i;
+    const match = content.match(regex);
+    if (!match) return [];
+
+    return match[1]
+      .split('\n')
+      .map(r => r.replace(/^[•\-]\s*/, '').trim())
+      .filter(Boolean);
   }
 }
 

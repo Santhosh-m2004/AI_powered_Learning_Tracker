@@ -4,7 +4,6 @@ import API from '../api/axios.js';
 import { toast } from 'react-hot-toast';
 
 const AuthContext = createContext({});
-
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -13,41 +12,49 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    setLoading(true);
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (token && storedUser) {
-      try {
-        // Verify token by fetching profile
-        const response = await API.get('/auth/profile');
-        setUser(response.data);
-        localStorage.setItem('user', JSON.stringify(response.data));
-      } catch (error) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-      }
+
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    try {
+      const response = await API.get('/auth/profile');
+      setUser(response.data);
+    } catch (error) {
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const login = async (email, password) => {
     try {
       const response = await API.post('/auth/login', { email, password });
-      
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data));
-      
-      setUser(response.data);
-      toast.success('Login successful!');
+
+      const token = response.data?.token;
+      if (!token) throw new Error('Invalid login response');
+
+      localStorage.setItem('token', token);
+
+      const profile = await API.get('/auth/profile');
+      setUser(profile.data);
+
+      toast.success('Login successful');
       navigate('/');
-      
-      return response.data;
+
+      return profile.data;
     } catch (error) {
+      const msg = error?.response?.data?.message || 'Login failed';
+      toast.error(msg);
       throw error;
     }
   };
@@ -55,16 +62,22 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const response = await API.post('/auth/register', { name, email, password });
-      
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data));
-      
-      setUser(response.data);
-      toast.success('Registration successful!');
+
+      const token = response.data?.token;
+      if (!token) throw new Error('Invalid registration response');
+
+      localStorage.setItem('token', token);
+
+      const profile = await API.get('/auth/profile');
+      setUser(profile.data);
+
+      toast.success('Registration successful');
       navigate('/');
-      
-      return response.data;
+
+      return profile.data;
     } catch (error) {
+      const msg = error?.response?.data?.message || 'Registration failed';
+      toast.error(msg);
       throw error;
     }
   };
@@ -73,13 +86,12 @@ export const AuthProvider = ({ children }) => {
     try {
       await API.post('/auth/logout');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.warn('Logout API error:', error);
     } finally {
       localStorage.removeItem('token');
-      localStorage.removeItem('user');
       setUser(null);
-      toast.success('Logged out successfully');
-      navigate('/login');
+      toast.success('Logged out');
+      navigate('/login', { replace: true });
     }
   };
 
@@ -87,10 +99,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await API.put('/auth/profile', data);
       setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data));
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated');
       return response.data;
     } catch (error) {
+      const msg = error?.response?.data?.message || 'Update failed';
+      toast.error(msg);
       throw error;
     }
   };

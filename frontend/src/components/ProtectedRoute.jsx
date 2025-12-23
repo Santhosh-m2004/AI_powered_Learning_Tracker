@@ -1,18 +1,28 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { LoadingPage } from '../components/LoadingSpinner.jsx';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
+  // Still checking authentication
   if (loading) {
+    return <LoadingPage />;
+  }
+
+  // Not authenticated → redirect to login with redirect param
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <Navigate
+        to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
+        replace
+      />
     );
   }
 
-  return user ? children : <Navigate to="/login" />;
+  // Authenticated → allow
+  return children;
 };
 
 export default ProtectedRoute;

@@ -1,14 +1,16 @@
 import { FiBook, FiCalendar, FiFileText, FiSearch, FiUsers } from 'react-icons/fi';
 
-const EmptyState = ({ 
-  icon: Icon = FiBook, 
-  title, 
-  message, 
-  action, 
-  type = "default" 
+const EmptyState = ({
+  icon,
+  title,
+  message,
+  action,
+  type = "default"
 }) => {
+
   const typeConfig = {
     default: {
+      icon: FiBook,
       iconColor: "text-gray-400",
       bgColor: "bg-gray-100 dark:bg-gray-800",
     },
@@ -39,29 +41,27 @@ const EmptyState = ({
     },
   };
 
-  const config = typeConfig[type];
-  const DisplayIcon = Icon || config.icon;
+  const config = typeConfig[type] || typeConfig.default;
+  const DisplayIcon = icon || config.icon;
 
   return (
-    <div className="text-center py-12 px-4">
-      <div className={`inline-flex items-center justify-center w-16 h-16 
-                      ${config.bgColor} rounded-full mb-4`}>
+    <div className="text-center py-12 px-4" role="status">
+      <div
+        className={`inline-flex items-center justify-center w-16 h-16 
+                    ${config.bgColor} rounded-full mb-4`}
+      >
         <DisplayIcon className={`w-8 h-8 ${config.iconColor}`} />
       </div>
-      
+
       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
         {title}
       </h3>
-      
+
       <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-6">
         {message}
       </p>
-      
-      {action && (
-        <div className="mt-6">
-          {action}
-        </div>
-      )}
+
+      {action && <div className="mt-6">{action}</div>}
     </div>
   );
 };
@@ -69,8 +69,8 @@ const EmptyState = ({
 export const EmptyLearningState = ({ onAddSession }) => (
   <EmptyState
     type="learning"
-    title="No learning sessions yet"
-    message="Start tracking your learning journey by adding your first session."
+    title="No learning sessions found"
+    message="Start your learning journey by adding your first session."
     action={
       <button
         onClick={onAddSession}
@@ -87,8 +87,8 @@ export const EmptyLearningState = ({ onAddSession }) => (
 export const EmptyPlannerState = ({ onCreatePlan }) => (
   <EmptyState
     type="planner"
-    title="No study plans yet"
-    message="Create a study plan to organize your learning goals and track progress."
+    title="No study plans available"
+    message="Create your first study plan to stay organized."
     action={
       <button
         onClick={onCreatePlan}
@@ -105,8 +105,8 @@ export const EmptyPlannerState = ({ onCreatePlan }) => (
 export const EmptyNotesState = ({ onUploadNote }) => (
   <EmptyState
     type="notes"
-    title="No notes yet"
-    message="Upload your study materials or create notes to keep everything organized."
+    title="No notes found"
+    message="Upload or create notes to keep your study material organized."
     action={
       <button
         onClick={onUploadNote}
@@ -120,11 +120,15 @@ export const EmptyNotesState = ({ onUploadNote }) => (
   />
 );
 
-export const EmptySearchState = ({ searchQuery, onClear }) => (
+export const EmptySearchState = ({ searchQuery = "", onClear }) => (
   <EmptyState
     type="search"
     title="No results found"
-    message={`We couldn't find any results for "${searchQuery}". Try different keywords.`}
+    message={
+      searchQuery.trim().length > 0
+        ? `No results match "${searchQuery}". Try different keywords.`
+        : "No search results. Try entering a keyword."
+    }
     action={
       <button
         onClick={onClear}
