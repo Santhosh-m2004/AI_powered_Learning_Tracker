@@ -53,4 +53,13 @@ const learningSessionSchema = new mongoose.Schema({
 learningSessionSchema.index({ user: 1, date: -1 });
 learningSessionSchema.index({ user: 1, subject: 1 });
 
+// Add virtual for hours spent
+learningSessionSchema.virtual('hoursSpent').get(function() {
+  return (this.timeSpent / 60).toFixed(2);
+});
+
+// Ensure virtuals are included in JSON
+learningSessionSchema.set('toJSON', { virtuals: true });
+learningSessionSchema.set('toObject', { virtuals: true });
+
 export default mongoose.model('LearningSession', learningSessionSchema);
