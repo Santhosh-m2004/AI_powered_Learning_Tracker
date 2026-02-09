@@ -24,24 +24,29 @@ export const uploadNote = async (req, res) => {
 
     let aiSummary = '';
     if (content && content.length > 50) {
-      aiSummary = await GrokAIService.summarizeNotes(content);
+      try {
+        aiSummary = await GrokAIService.summarizeNotes(content);
+      } catch (aiError) {
+        console.error('AI summary error:', aiError);
+        aiSummary = 'AI summary unavailable';
+      }
     }
 
     const note = new Note({
       user: req.user._id,
-      title,
-      content,
+      title: title || req.file.originalname.split('.')[0],
+      content: content || '',
       fileUrl: req.file.path,
       filePublicId: req.file.filename,
       fileType:
-        req.file.mimetype.split('/')[0] === 'image'
+        req.file.mimetype.startsWith('image/')
           ? 'image'
           : req.file.mimetype === 'application/pdf'
           ? 'pdf'
           : 'other',
       aiSummary,
-      tags: tags ? tags.split(',').map(t => t.trim()) : [],
-      subject,
+      tags: tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [],
+      subject: subject || 'General',
       size: req.file.size
     });
 
@@ -56,9 +61,18 @@ export const createNote = async (req, res) => {
   try {
     const { title, content, tags, subject } = req.body;
 
+    if (!title || !content) {
+      return res.status(400).json({ message: 'Title and content are required' });
+    }
+
     let aiSummary = '';
     if (content && content.length > 50) {
-      aiSummary = await GrokAIService.summarizeNotes(content);
+      try {
+        aiSummary = await GrokAIService.summarizeNotes(content);
+      } catch (aiError) {
+        console.error('AI summary error:', aiError);
+        aiSummary = 'AI summary unavailable';
+      }
     }
 
     const note = new Note({
@@ -66,8 +80,8 @@ export const createNote = async (req, res) => {
       title,
       content,
       aiSummary,
-      tags: tags || [],
-      subject,
+      tags: Array.isArray(tags) ? tags : (tags ? [tags] : []),
+      subject: subject || 'General',
       fileType: 'text'
     });
 
@@ -84,13 +98,19 @@ export const getNotes = async (req, res) => {
 
     const query = { user: req.user._id };
 
-    if (search) query.$text = { $search: search };
-    if (subject) query.subject = new RegExp(subject, 'i');
-    if (tag) query.tags = tag;
+    if (search && search.trim() !== '') {
+      query.$or = [
+        { title: new RegExp(search.trim(), 'i') },
+        { content: new RegExp(search.trim(), 'i') }
+      ];
+    }
+    
+    if (subject && subject.trim() !== '') query.subject = new RegExp(subject.trim(), 'i');
+    if (tag && tag.trim() !== '') query.tags = tag.trim();
 
     const notes = await Note.find(query)
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+      .skip((page - 1) * parseInt(limit))
       .limit(parseInt(limit));
 
     const total = await Note.countDocuments(query);
@@ -129,7 +149,12 @@ export const updateNote = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
 
     if (req.body.content && req.body.content !== note.content) {
-      req.body.aiSummary = await GrokAIService.summarizeNotes(req.body.content);
+      try {
+        req.body.aiSummary = await GrokAIService.summarizeNotes(req.body.content);
+      } catch (aiError) {
+        console.error('AI summary error:', aiError);
+        req.body.aiSummary = note.aiSummary;
+      }
     }
 
     Object.assign(note, req.body);
@@ -152,7 +177,9 @@ export const deleteNote = async (req, res) => {
     if (note.filePublicId) {
       try {
         await cloudinary.uploader.destroy(note.filePublicId);
-      } catch {}
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+      }
     }
 
     await note.deleteOne();
@@ -166,14 +193,20 @@ export const searchNotes = async (req, res) => {
   try {
     const { q } = req.query;
 
-    if (!q) return res.status(400).json({ message: 'Search query required' });
+    if (!q || q.trim() === '') {
+      return res.status(400).json({ message: 'Search query required' });
+    }
 
-    const notes = await Note.find(
-      { user: req.user._id, $text: { $search: q } },
-      { score: { $meta: 'textScore' } }
-    )
-      .sort({ score: { $meta: 'textScore' } })
-      .limit(20);
+    const notes = await Note.find({
+      user: req.user._id,
+      $or: [
+        { title: new RegExp(q.trim(), 'i') },
+        { content: new RegExp(q.trim(), 'i') },
+        { tags: new RegExp(q.trim(), 'i') }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .limit(20);
 
     res.json(notes);
   } catch (error) {

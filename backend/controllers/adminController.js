@@ -61,41 +61,38 @@ export const getAnalytics = async (req, res) => {
     
     // Note statistics
     const totalNotes = await Note.countDocuments();
-    const notesWithFiles = await Note.countDocuments({ fileUrl: { $exists: true } });
+    const notesWithFiles = await Note.countDocuments({ fileUrl: { $exists: true, $ne: null } });
     
     // Daily activity for last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
     const dailyActivity = await LearningSession.aggregate([
-  {
-    $match: {
-      date: { $gte: thirtyDaysAgo }
-    }
-  },
-  {
-    $group: {
-      _id: {
-        day: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-        actualDate: "$date"
+      {
+        $match: {
+          date: { $gte: thirtyDaysAgo }
+        }
       },
-      sessions: { $sum: 1 },
-      totalTime: { $sum: "$timeSpent" },
-      users: { $addToSet: "$user" }
-    }
-  },
-  {
-    $project: {
-      date: "$_id.day",
-      actualDate: "$_id.actualDate",
-      sessions: 1,
-      totalTime: 1,
-      activeUsers: { $size: "$users" }
-    }
-  },
-  { $sort: { actualDate: 1 } }
-]);
-
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$date" }
+          },
+          sessions: { $sum: 1 },
+          totalTime: { $sum: "$timeSpent" },
+          users: { $addToSet: "$user" }
+        }
+      },
+      {
+        $project: {
+          date: "$_id",
+          sessions: 1,
+          totalTime: 1,
+          activeUsers: { $size: "$users" }
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
     
     // User engagement metrics
     const activeUsers = await LearningSession.aggregate([
@@ -107,8 +104,7 @@ export const getAnalytics = async (req, res) => {
       {
         $group: {
           _id: "$user",
-          sessions: { $sum: 1 },
-          totalTime: { $sum: "$timeSpent" }
+          sessions: { $sum: 1 }
         }
       },
       {
@@ -208,7 +204,12 @@ export const updateUserRole = async (req, res) => {
     user.role = role;
     await user.save();
     
-    res.json({ message: 'User role updated successfully', user });
+    res.json({ message: 'User role updated successfully', user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    } });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

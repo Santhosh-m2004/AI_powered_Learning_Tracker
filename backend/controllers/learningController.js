@@ -1,5 +1,4 @@
 import LearningSession from '../models/LearningSession.js';
-import StudyPlan from '../models/StudyPlan.js';
 
 export const createSession = async (req, res) => {
   try {
@@ -26,12 +25,12 @@ export const getSessions = async (req, res) => {
       if (endDate) query.date.$lte = new Date(endDate);
     }
 
-    if (subject) query.subject = new RegExp(subject, 'i');
+    if (subject && subject.trim() !== '') query.subject = new RegExp(subject.trim(), 'i');
     if (difficulty) query.difficulty = difficulty;
 
     const sessions = await LearningSession.find(query)
       .sort({ date: -1 })
-      .skip((page - 1) * limit)
+      .skip((page - 1) * parseInt(limit))
       .limit(parseInt(limit));
 
     const total = await LearningSession.countDocuments(query);
@@ -67,24 +66,26 @@ export const getStats = async (req, res) => {
         acc[s.subject] = {
           totalTime: 0,
           sessions: 0,
-          avgDifficulty: 0
+          difficultySum: 0
         };
       }
       acc[s.subject].totalTime += s.timeSpent;
       acc[s.subject].sessions++;
       const diffMap = { easy: 1, medium: 2, hard: 3 };
-      acc[s.subject].avgDifficulty += diffMap[s.difficulty] || 2;
+      acc[s.subject].difficultySum += diffMap[s.difficulty] || 2;
       return acc;
     }, {});
 
     Object.keys(subjectStats).forEach(sub => {
       subjectStats[sub].avgDifficulty = (
-        subjectStats[sub].avgDifficulty / subjectStats[sub].sessions
+        subjectStats[sub].difficultySum / subjectStats[sub].sessions
       ).toFixed(2);
+      delete subjectStats[sub].difficultySum;
     });
 
     const last7Days = new Date();
     last7Days.setDate(last7Days.getDate() - 7);
+    last7Days.setHours(0, 0, 0, 0);
 
     const dailyStats = await LearningSession.aggregate([
       { $match: { user: req.user._id, date: { $gte: last7Days } } },
@@ -106,7 +107,7 @@ export const getStats = async (req, res) => {
       subjectStats,
       dailyStats,
       productivityScore,
-      avgSessionTime: sessions.length > 0 ? totalTime / sessions.length : 0
+      avgSessionTime: sessions.length > 0 ? (totalTime / sessions.length).toFixed(2) : 0
     });
   } catch (error) {
     res.status(400).json({ message: error.message });

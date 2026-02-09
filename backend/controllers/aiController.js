@@ -1,14 +1,16 @@
 import GrokAIService from '../services/grokAIService.js';
 import LearningSession from '../models/LearningSession.js';
-import StudyPlan from '../models/StudyPlan.js';   
+import StudyPlan from '../models/StudyPlan.js';
 
-
+/* -----------------------------------------
+   GET AI LEARNING INSIGHTS
+----------------------------------------- */
 export const getInsights = async (req, res) => {
   try {
     const { days = 30 } = req.query;
 
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    startDate.setDate(startDate.getDate() - parseInt(days));
 
     const sessions = await LearningSession.find({
       user: req.user._id,
@@ -86,8 +88,12 @@ export const generateStudyPlan = async (req, res) => {
 
     const userData = { subjects, weakSubjects, dailyGoal, learningStyle };
 
-    // 🔥 FIXED: remove duplicate parameter
+    // 🔥 Generate AI plan
     const aiPlan = await GrokAIService.generateStudyPlan(userData);
+
+    if (!aiPlan || !aiPlan.topics) {
+      return res.status(500).json({ message: 'Failed to generate valid study plan' });
+    }
 
     // Convert AI plan → DB structure
     const studyPlan = new StudyPlan({
@@ -98,11 +104,13 @@ export const generateStudyPlan = async (req, res) => {
       date: new Date(),
       notes: `AI-generated plan focusing on: ${subjects.join(', ')}`,
       tasks: aiPlan.topics.map((topic, i) => ({
-        subject: subjects[0],
-        topic,
+        subject: subjects[i % subjects.length] || subjects[0],
+        topic: typeof topic === 'string' ? topic : topic.name || `Topic ${i + 1}`,
         estimatedTime: 60,
-        priority: i < 3 ? 'high' : 'medium'
-      }))
+        priority: i < 3 ? 'high' : 'medium',
+        completed: false
+      })),
+      status: 'pending'
     });
 
     const savedPlan = await studyPlan.save();
@@ -126,7 +134,7 @@ export const analyzeWeakSubjects = async (req, res) => {
     const { days = 30 } = req.query;
 
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    startDate.setDate(startDate.getDate() - parseInt(days));
 
     const sessions = await LearningSession.find({
       user: req.user._id,
@@ -162,13 +170,18 @@ export const analyzeWeakSubjects = async (req, res) => {
     });
 
     const subjectScores = Object.entries(subjectPerformance).map(([subject, data]) => {
-      const timeScore = data.time / (days * 60);
+      const timeScore = data.time / (parseInt(days) * 60);
       const difficultyScore = data.difficultySum / data.sessions;
-      const frequencyScore = data.sessions / days;
+      const frequencyScore = data.sessions / parseInt(days);
 
       const totalScore = (timeScore * 0.4) + (difficultyScore * 0.4) + (frequencyScore * 0.2);
 
-      return { subject, score: totalScore, details: data };
+      return { 
+        subject, 
+        score: totalScore, 
+        details: data,
+        averageTimePerSession: data.time / data.sessions
+      };
     });
 
     subjectScores.sort((a, b) => a.score - b.score);
