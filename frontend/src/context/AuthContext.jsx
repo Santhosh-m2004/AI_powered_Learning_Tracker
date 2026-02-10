@@ -82,6 +82,29 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (googleData) => {
+    try {
+      const response = await API.post('/auth/google', googleData);
+
+      const token = response.data?.token;
+      if (!token) throw new Error('Invalid Google login response');
+
+      localStorage.setItem('token', token);
+
+      const profile = await API.get('/auth/profile');
+      setUser(profile.data);
+
+      toast.success('Google login successful');
+      navigate('/');
+
+      return profile.data;
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Google login failed';
+      toast.error(msg);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await API.post('/auth/logout');
@@ -113,6 +136,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     register,
+    googleLogin,
     logout,
     updateProfile
   };

@@ -1,187 +1,165 @@
-import axios from 'axios';
-
-class GrokAIService {
+// grokAIService.mock.js - For development without API key
+class MockGrokAIService {
   constructor() {
-    this.apiKey = process.env.GROK_API_KEY;
-    this.apiUrl = process.env.GROK_API_URL || 'https://api.x.ai/v1/chat/completions';
+    console.log('📱 Using Mock AI Service - For development only');
   }
 
   async analyzeLearningData(learningData) {
-    try {
-      const prompt = `
-Analyze the following learning data and provide structured insights:
-Total sessions: ${learningData.totalSessions}
-Total time spent: ${learningData.totalTime} minutes
-Subjects: ${JSON.stringify(learningData.subjects)}
-Average difficulty: ${learningData.avgDifficulty}
-
-Provide:
-Weak subjects
-Best times for studying
-Recommendations
-Weekly plan suggestions
-`;
-
-      const response = await this.makeRequest(prompt);
-      return this.parseAIResponse(response);
-    } catch {
-      throw new Error('AI analysis failed');
-    }
+    await this.delay(500);
+    
+    const subjects = Object.keys(learningData.subjects || {});
+    const totalHours = (learningData.totalTime / 60).toFixed(1);
+    
+    return {
+      weakSubjects: this.getWeakSubjects(subjects),
+      bestTimes: this.getBestTimes(),
+      recommendations: this.getRecommendations(learningData.totalSessions),
+      productivityScore: this.calculateProductivityScore(learningData),
+      weeklySuggestions: this.getWeeklySuggestions(subjects),
+      note: 'Mock AI Response - Set GROK_API_KEY for real analysis'
+    };
   }
 
-  async generateStudyPlan(userData, preferences) {
-    try {
-      const prompt = `
-Generate a personalized weekly study plan:
-Daily available time: ${preferences.dailyGoal} minutes
-Subjects: ${preferences.subjects.join(', ')}
-Weak areas: ${preferences.weakSubjects.join(', ')}
-Learning style: ${preferences.learningStyle}
-
-Include:
-Daily schedule
-Topic breakdown
-Recommended resources
-Review sessions
-`;
-
-      const response = await this.makeRequest(prompt, 0.7);
-      return this.parseStudyPlan(response);
-    } catch {
-      throw new Error('Study plan generation failed');
-    }
+  async generateStudyPlan(userData) {
+    await this.delay(800);
+    
+    return {
+      dailySchedule: this.generateMockSchedule(userData),
+      topics: this.generateTopics(userData),
+      resources: this.getResources(),
+      tips: this.getStudyTips(),
+      duration: '1 week',
+      generatedAt: new Date().toISOString(),
+      note: 'Mock Study Plan - Real AI requires GROK_API_KEY'
+    };
   }
 
   async summarizeNotes(content) {
-    try {
-      const prompt = `
-Summarize the following notes concisely:
-${content}
-
-Include:
-Main topics
-Key concepts
-Important formulas
-Study advice
-`;
-
-      const response = await this.makeRequest(prompt, 0.3);
-      return response.choices?.[0]?.message?.content || '';
-    } catch {
-      return 'AI summary unavailable';
+    await this.delay(300);
+    
+    if (!content || content.length < 20) {
+      return 'Content too short for meaningful summary.';
     }
+    
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const summaryPoints = sentences.slice(0, Math.min(4, sentences.length));
+    
+    return `📝 Summary (Mock):
+${summaryPoints.map((s, i) => `${i + 1}. ${s.trim()}`).join('\n')}
+
+✨ Key Takeaway: Focus on understanding core concepts before details.`;
   }
 
   async getMotivationalMessage() {
-    try {
-      const prompts = [
-        "Give an inspirational quote about learning.",
-        "Provide motivational study advice.",
-        "Share an encouraging message for students."
-      ];
-
-      const response = await this.makeRequest(
-        prompts[Math.floor(Math.random() * prompts.length)],
-        0.9
-      );
-
-      return response.choices?.[0]?.message?.content || '';
-    } catch {
-      return "Keep learning, every step counts!";
-    }
+    await this.delay(200);
+    
+    const messages = [
+      "🚀 Your potential is limitless. Keep pushing forward!",
+      "💡 Every expert was once a beginner. You're on the right path!",
+      "🌟 Small daily improvements lead to massive results over time.",
+      "📚 The more you learn, the more you realize how much there is to discover.",
+      "🔥 Consistency beats intensity. Keep showing up every day!",
+      "🎯 Focus on progress, not perfection. Every step counts!"
+    ];
+    
+    return messages[Math.floor(Math.random() * messages.length)];
   }
 
-  async makeRequest(prompt, temperature = 0.5) {
-    const response = await axios.post(
-      this.apiUrl,
-      {
-        model: "grok-beta",
-        messages: [
-          { role: "system", content: "You are an AI learning assistant." },
-          { role: "user", content: prompt }
-        ],
-        temperature,
-        max_tokens: 1000,
-        stream: false
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    return response.data;
+  // Helper methods
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  parseAIResponse(response) {
-    const content = response.choices?.[0]?.message?.content || '';
-
-    return {
-      weakSubjects: this.extractSection(content, 'Weak subjects'),
-      recommendations: this.extractSection(content, 'Recommendations'),
-      studyTips: this.extractSection(content, 'Study tips'),
-      productivityScore: this.extractProductivityScore(content)
-    };
+  getWeakSubjects(subjects) {
+    if (subjects.length === 0) return 'No subjects recorded yet';
+    if (subjects.length === 1) return 'Try adding more subjects for better analysis';
+    return subjects.slice(0, Math.min(2, subjects.length)).join(', ');
   }
 
-  parseStudyPlan(response) {
-    const content = response.choices?.[0]?.message?.content || '';
-
-    return {
-      dailySchedule: this.extractDailySchedule(content),
-      topics: this.extractTopics(content),
-      resources: this.extractResources(content),
-      duration: '1 week'
-    };
+  getBestTimes() {
+    const times = [
+      'Morning (6-9 AM): High focus, low distractions',
+      'Afternoon (2-4 PM): Good for review and practice',
+      'Evening (7-9 PM): Best for creative tasks'
+    ];
+    return times.join('\n');
   }
 
-  extractSection(content, sectionName) {
-    const regex = new RegExp(`${sectionName}[:\\s]+([\\s\\S]*?)(?=\\n\\n|$)`, 'i');
-    const match = content.match(regex);
-    return match ? match[1].trim() : '';
+  getRecommendations(sessionCount) {
+    if (sessionCount < 3) return 'Start with 25-minute focused sessions. Track consistently.';
+    if (sessionCount < 10) return 'Try spaced repetition: review topics after 1, 7, 30 days.';
+    return 'Consider the Pomodoro technique: 25 min focus, 5 min break.';
   }
 
-  extractProductivityScore(content) {
-    const match = content.match(/productivity score[:\s]*(\d+)/i);
-    return match ? parseInt(match[1]) : 7;
+  calculateProductivityScore(learningData) {
+    let score = 5;
+    if (learningData.totalSessions > 5) score += 2;
+    if (learningData.totalTime > 300) score += 1;
+    if (Object.keys(learningData.subjects || {}).length > 2) score += 1;
+    return Math.min(Math.max(score, 1), 10);
   }
 
-  extractDailySchedule(content) {
-    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  getWeeklySuggestions(subjects) {
+    if (subjects.length === 0) return 'Start by identifying 2-3 subjects to focus on.';
+    
+    return `Weekly Plan:
+• Monday/Wednesday/Friday: Focus on ${subjects[0] || 'primary subject'}
+• Tuesday/Thursday: Focus on ${subjects[1] || 'secondary subject'}
+• Weekend: Review and practice tests`;
+  }
+
+  generateMockSchedule(userData) {
     const schedule = {};
-
-    days.forEach(day => {
-      const regex = new RegExp(`${day}[:\\s]+([\\s\\S]*?)(?=\\n[A-Z]|$)`, 'i');
-      const match = content.match(regex);
-      schedule[day.toLowerCase()] = match ? match[1].trim() : '';
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const primarySubject = userData.subjects?.[0] || 'Mathematics';
+    const secondarySubject = userData.subjects?.[1] || 'Science';
+    
+    days.forEach((day, index) => {
+      if (index < 5) { // Weekdays
+        if (index % 2 === 0) {
+          schedule[day] = `${primarySubject} (60 min)\nPractice problems (30 min)`;
+        } else {
+          schedule[day] = `${secondarySubject} (60 min)\nConcept review (30 min)`;
+        }
+      } else if (index === 5) { // Saturday
+        schedule[day] = 'Weekly review (90 min)\nMock test (60 min)';
+      } else { // Sunday
+        schedule[day] = 'Light revision (45 min)\nPlan next week (15 min)';
+      }
     });
-
+    
     return schedule;
   }
 
-  extractTopics(content) {
-    const regex = /Topics?[:\s]+([\s\S]*?)(?=\n\n|Resources:|$)/i;
-    const match = content.match(regex);
-    if (!match) return [];
-
-    return match[1]
-      .split('\n')
-      .map(t => t.replace(/^[•\-]\s*/, '').trim())
-      .filter(Boolean);
+  generateTopics(userData) {
+    const baseTopics = ['Fundamentals', 'Practice Problems', 'Advanced Concepts', 'Real Applications'];
+    const subjectTopics = userData.subjects?.map(subject => 
+      `${subject}: ${baseTopics[Math.floor(Math.random() * baseTopics.length)]}`
+    ) || [];
+    
+    return [...subjectTopics, 'Review Sessions', 'Progress Assessment'];
   }
 
-  extractResources(content) {
-    const regex = /Resources?[:\s]+([\s\S]*?)(?=\n\n|$)/i;
-    const match = content.match(regex);
-    if (!match) return [];
+  getResources() {
+    return [
+      'Khan Academy - Free comprehensive lessons',
+      'Coursera/edX - University-level courses',
+      'YouTube Education - Visual explanations',
+      'Quizlet/Anki - Flashcards for memorization',
+      'Practice worksheets online'
+    ];
+  }
 
-    return match[1]
-      .split('\n')
-      .map(r => r.replace(/^[•\-]\s*/, '').trim())
-      .filter(Boolean);
+  getStudyTips() {
+    return [
+      'Study in 25-30 minute blocks with 5-minute breaks',
+      'Teach concepts to someone else to reinforce learning',
+      'Connect new information to what you already know',
+      'Get adequate sleep - it consolidates memory',
+      'Stay hydrated and take care of your physical health'
+    ].join('\n• ');
   }
 }
 
-export default new GrokAIService();
+// Export mock service
+export default new MockGrokAIService();

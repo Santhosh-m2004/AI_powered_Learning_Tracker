@@ -11,12 +11,24 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Please provide all fields' });
     }
 
+    // Check if user already exists with this email
     const userExists = await User.findOne({ email });
     if (userExists) {
+      // If user exists but uses Google OAuth
+      if (userExists.provider === 'google') {
+        return res.status(400).json({ 
+          message: 'This email is already registered with Google. Please login with Google instead.' 
+        });
+      }
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const user = await User.create({ name, email, password });
+    const user = await User.create({ 
+      name, 
+      email, 
+      password,
+      provider: 'local' 
+    });
 
     const token = generateToken(user._id);
 
@@ -25,6 +37,8 @@ export const register = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      avatar: user.avatar,
+      provider: user.provider,
       streak: user.streak,
       token
     });
@@ -46,10 +60,17 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
+    // Check if user uses Google OAuth
+    if (user.provider === 'google') {
+      return res.status(400).json({ 
+        message: 'This account uses Google login. Please login with Google instead.' 
+      });
+    }
+
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) return res.status(401).json({ message: 'Invalid credentials' });
 
-    /* ---------- STREAK LOGIC ---------- */
+    // Update streak logic
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -64,7 +85,6 @@ export const login = async (req, res) => {
       } else if (diffDays > 1) {
         user.streak.current = 1;
       }
-      // If diffDays === 0, user already logged in today, keep streak as is
     } else {
       // First time login
       user.streak.current = 1;
@@ -81,6 +101,8 @@ export const login = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      avatar: user.avatar,
+      provider: user.provider,
       streak: user.streak,
       token
     });
@@ -90,10 +112,90 @@ export const login = async (req, res) => {
   }
 };
 
+/* ---------------------- GOOGLE OAUTH ---------------------- */
+export const googleAuth = async (req, res) => {
+  try {
+    const { id, email, name, picture } = req.body;
+
+    if (!id || !email || !name) {
+      return res.status(400).json({ message: 'Invalid Google auth data' });
+    }
+
+    // Check if user exists with this email
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // If user exists with local auth, merge accounts
+      if (user.provider === 'local') {
+        // Update user to also have Google OAuth
+        user.googleId = id;
+        if (picture && !user.avatar) {
+          user.avatar = picture;
+        }
+        user.provider = 'google'; // Switch to Google OAuth
+      } else if (user.provider === 'google') {
+        // Already a Google user, update info if needed
+        if (!user.googleId) user.googleId = id;
+        if (picture && !user.avatar) user.avatar = picture;
+      }
+    } else {
+      // Create new user
+      user = new User({
+        name,
+        email,
+        googleId: id,
+        avatar: picture,
+        provider: 'google'
+      });
+    }
+
+    // Update streak
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const lastActiveDate = user.streak.lastActive ? new Date(user.streak.lastActive) : null;
+    
+    if (!lastActiveDate) {
+      user.streak.current = 1;
+    } else {
+      lastActiveDate.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((today - lastActiveDate) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        user.streak.current += 1;
+      } else if (diffDays > 1) {
+        user.streak.current = 1;
+      }
+    }
+    
+    user.streak.lastActive = today;
+    user.streak.longest = Math.max(user.streak.longest, user.streak.current);
+    
+    await user.save();
+
+    const token = generateToken(user._id);
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      provider: user.provider,
+      streak: user.streak,
+      token
+    });
+
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ message: 'Google authentication failed' });
+  }
+};
+
 /* ---------------------- GET PROFILE ---------------------- */
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findById(req.user._id).select('-password -googleId');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -120,8 +222,16 @@ export const updateProfile = async (req, res) => {
       user.email = req.body.email;
     }
 
-    if (req.body.password) {
+    if (req.body.password && user.provider === 'local') {
       user.password = req.body.password;
+    }
+
+    if (req.body.avatar) {
+      user.avatar = req.body.avatar;
+    }
+
+    if (req.body.bio !== undefined) {
+      user.bio = req.body.bio;
     }
 
     const updatedUser = await user.save();
@@ -134,7 +244,10 @@ export const updateProfile = async (req, res) => {
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role,
+      avatar: updatedUser.avatar,
+      provider: updatedUser.provider,
       streak: updatedUser.streak,
+      bio: updatedUser.bio,
       token
     });
 

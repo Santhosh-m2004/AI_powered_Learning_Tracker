@@ -17,7 +17,6 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
   },
   role: {
@@ -25,6 +24,22 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  
+  // Google OAuth fields
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  avatar: {
+    type: String
+  },
+  provider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
+  
   streak: {
     current: { 
       type: Number, 
@@ -69,10 +84,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
+// Hash password before saving (only for local auth)
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
+  // Only hash the password if it has been modified and user is local
+  if (!this.isModified('password') || this.provider !== 'local') return next();
+  
+  if (!this.password) {
+    return next(new Error('Password is required for local authentication'));
+  }
   
   try {
     const salt = await bcrypt.genSalt(10);
@@ -85,6 +104,7 @@ userSchema.pre('save', async function(next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
@@ -119,22 +139,53 @@ userSchema.methods.updateStreak = async function() {
   return await this.save();
 };
 
+// Static method for OAuth find or create
+userSchema.statics.findOrCreate = async function(profile) {
+  let user = await this.findOne({ 
+    $or: [
+      { email: profile.email },
+      { googleId: profile.googleId }
+    ]
+  });
+
+  if (!user) {
+    // Create new user
+    user = new this({
+      name: profile.name,
+      email: profile.email,
+      googleId: profile.googleId,
+      avatar: profile.avatar,
+      provider: 'google'
+    });
+    await user.save();
+  } else {
+    // Update existing user with OAuth info if needed
+    if (profile.googleId && !user.googleId) user.googleId = profile.googleId;
+    if (profile.avatar && !user.avatar) user.avatar = profile.avatar;
+    user.provider = 'google';
+    await user.save();
+  }
+
+  return user;
+};
+
 // Remove sensitive information from JSON response
 userSchema.set('toJSON', {
   transform: function(doc, ret) {
     delete ret.password;
     delete ret.__v;
+    delete ret.googleId;
     return ret;
   }
 });
 
 // Indexes
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleId: 1 }, { sparse: true });
 userSchema.index({ 'streak.lastActive': -1 });
 
-// Virtual for total learning time (if you want to track this)
+// Virtual for total learning time
 userSchema.virtual('totalLearningTime').get(function() {
-  // This would be populated by aggregating LearningSession data
   return 0;
 });
 
