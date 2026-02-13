@@ -5,8 +5,9 @@ import {
   FiImage,
   FiSearch,
   FiTrash2,
-  FiEdit,
   FiDownload,
+  FiExternalLink,
+  FiEye,
   FiX
 } from 'react-icons/fi';
 import Navbar from '../components/Navbar.jsx';
@@ -21,6 +22,12 @@ const Notes = () => {
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [noteType, setNoteType] = useState('text'); // 'text' or 'file'
+  const [previewModal, setPreviewModal] = useState({
+    isOpen: false,
+    note: null
+  });
 
   const fileInputRef = useRef(null);
 
@@ -49,30 +56,37 @@ const Notes = () => {
   };
 
   /* ---------------------------------- UPLOAD FILE ---------------------------------- */
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file first');
+      return;
+    }
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (selectedFile.size > 10 * 1024 * 1024) {
       toast.error('File size must be less than 10MB');
       return;
     }
 
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', noteForm.title || file.name);
+    formData.append('file', selectedFile);
+    formData.append('title', noteForm.title || selectedFile.name);
     formData.append('content', noteForm.content || '');
     formData.append('subject', noteForm.subject || '');
     formData.append('tags', noteForm.tags || '');
 
     try {
       setUploading(true);
-      const response = await API.post('/notes/upload', formData);
+      const response = await API.post('/notes/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       toast.success('Note uploaded successfully');
 
       setNotes(prev => [response.data, ...prev]);
       closeModal();
     } catch (error) {
+      console.error('Upload error:', error);
       toast.error('Failed to upload note');
     } finally {
       setUploading(false);
@@ -101,6 +115,105 @@ const Notes = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  /* ---------------------------------- HANDLE SUBMIT ---------------------------------- */
+  const handleSubmit = () => {
+    if (noteType === 'file') {
+      handleFileUpload();
+    } else {
+      handleTextNoteSubmit();
+    }
+  };
+
+  /* ---------------------------------- FILE SELECTION ---------------------------------- */
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    
+    // Set default title if not already set
+    if (!noteForm.title.trim()) {
+      const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+      setNoteForm(prev => ({
+        ...prev,
+        title: fileNameWithoutExt
+      }));
+    }
+  };
+
+  /* ---------------------------------- HANDLE DOWNLOAD/VIEW ---------------------------------- */
+  const handleDownload = async (note) => {
+    try {
+      if (note.fileUrl) {
+        // If it's a direct file URL, open in new tab for view/download
+        window.open(note.fileUrl, '_blank');
+      } else if (note.fileId) {
+        // If backend has fileId, use download endpoint
+        const response = await API.get(`/notes/${note._id}/download`, {
+          responseType: 'blob'
+        });
+        
+        // Create blob and download
+        const blob = new Blob([response.data]);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', note.title || 'note.pdf');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      toast.error('Failed to download file');
+      console.error('Download error:', error);
+    }
+  };
+
+  /* ---------------------------------- HANDLE VIEW/OPEN ---------------------------------- */
+  const handleView = (note) => {
+    if (!note.fileUrl) {
+      toast.error('No file available to view');
+      return;
+    }
+
+    // Check if it's an image or PDF for preview
+    const fileType = note.fileType?.toLowerCase() || '';
+    const fileName = note.title?.toLowerCase() || '';
+
+    if (fileType.includes('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName)) {
+      // Open image in new tab for viewing
+      window.open(note.fileUrl, '_blank');
+    } else if (fileType.includes('pdf') || /\.pdf$/i.test(fileName)) {
+      // Open PDF in new tab (most browsers can display PDFs)
+      window.open(note.fileUrl, '_blank');
+    } else {
+      // For other file types, try to open or download
+      window.open(note.fileUrl, '_blank');
+    }
+  };
+
+  /* ---------------------------------- PREVIEW FILE ---------------------------------- */
+  const handlePreview = (note) => {
+    if (!note.fileUrl) {
+      toast.error('No file available to preview');
+      return;
+    }
+
+    setPreviewModal({
+      isOpen: true,
+      note: note
+    });
+  };
+
+  /* ---------------------------------- CLOSE PREVIEW ---------------------------------- */
+  const closePreview = () => {
+    setPreviewModal({
+      isOpen: false,
+      note: null
+    });
   };
 
   /* ---------------------------------- SEARCH NOTES ---------------------------------- */
@@ -136,6 +249,8 @@ const Notes = () => {
       tags: '',
       subject: ''
     });
+    setSelectedFile(null);
+    setNoteType('text');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -145,13 +260,15 @@ const Notes = () => {
   };
 
   /* ---------------------------------- FILE ICON ---------------------------------- */
-  const getFileIcon = (fileType) => {
-    if (!fileType) return <FiFile className="w-5 h-5 text-blue-500" />;
+  const getFileIcon = (fileType, fileName = '') => {
+    if (!fileType && !fileName) return <FiFile className="w-5 h-5 text-blue-500" />;
 
-    const type = fileType.toLowerCase();
+    const type = (fileType || '').toLowerCase();
+    const name = (fileName || '').toLowerCase();
 
-    if (type.includes('pdf')) return <FiFile className="w-5 h-5 text-red-500" />;
-    if (type.includes('image')) return <FiImage className="w-5 h-5 text-green-500" />;
+    if (type.includes('pdf') || name.endsWith('.pdf')) return <FiFile className="w-5 h-5 text-red-500" />;
+    if (type.includes('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(name)) return <FiImage className="w-5 h-5 text-green-500" />;
+    if (type.includes('word') || /\.(doc|docx)$/i.test(name)) return <FiFile className="w-5 h-5 text-blue-600" />;
     return <FiFile className="w-5 h-5 text-blue-500" />;
   };
 
@@ -225,28 +342,37 @@ const Notes = () => {
                   {/* HEADER */}
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center">
-                      {getFileIcon(note.fileType)}
+                      {getFileIcon(note.fileType, note.title)}
                       <h3 className="font-semibold ml-2 truncate">{note.title}</h3>
                     </div>
 
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleDeleteNote(note._id)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                        title="Delete note"
                       >
                         <FiTrash2 className="w-4 h-4" />
                       </button>
 
                       {note.fileUrl && (
-                        <a
-                          href={note.fileUrl}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                        >
-                          <FiDownload className="w-4 h-4" />
-                        </a>
+                        <>
+                          <button
+                            onClick={() => handleView(note)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                            title="View file"
+                          >
+                            <FiExternalLink className="w-4 h-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDownload(note)}
+                            className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                            title="Download file"
+                          >
+                            <FiDownload className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -273,7 +399,7 @@ const Notes = () => {
                   {/* TAGS */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {note.tags?.slice(0, 3).map((tag, i) => (
-                      <span key={i} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      <span key={i} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
                         {tag}
                       </span>
                     ))}
@@ -290,6 +416,21 @@ const Notes = () => {
                     <span>{note.subject || 'General'}</span>
                     <span>{new Date(note.createdAt).toLocaleDateString()}</span>
                   </div>
+
+                  {/* FILE INFO */}
+                  {note.fileUrl && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center text-xs text-gray-500">
+                        <FiFile className="w-3 h-3 mr-1" />
+                        <span className="truncate">
+                          {note.fileType || 'File'} • 
+                          {(note.fileSize && note.fileSize > 0) 
+                            ? ` ${(note.fileSize / 1024 / 1024).toFixed(2)} MB`
+                            : ' Unknown size'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               ))}
@@ -323,7 +464,6 @@ const Notes = () => {
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-
             <div className="p-6">
               {/* HEADER */}
               <div className="flex justify-between items-center mb-6">
@@ -334,17 +474,21 @@ const Notes = () => {
               </div>
 
               <div className="space-y-6">
-
                 {/* Note Type */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Note Type</label>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                     {/* File Upload Button */}
                     <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 text-center"
+                      onClick={() => {
+                        setNoteType('file');
+                        fileInputRef.current?.click();
+                      }}
+                      className={`p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
+                        noteType === 'file' 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                          : 'border-gray-300 hover:border-blue-500'
+                      }`}
                     >
                       <FiUpload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                       <p className="font-medium">Upload File</p>
@@ -352,12 +496,18 @@ const Notes = () => {
                     </button>
 
                     {/* Text Note */}
-                    <div className="p-4 border-2 border-gray-300 rounded-lg">
+                    <button
+                      onClick={() => setNoteType('text')}
+                      className={`p-4 border-2 rounded-lg text-center transition-colors ${
+                        noteType === 'text' 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                          : 'border-gray-300 hover:border-blue-500'
+                      }`}
+                    >
                       <FiFile className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                       <p className="font-medium">Text Note</p>
                       <p className="text-sm text-gray-500">Write directly</p>
-                    </div>
-
+                    </button>
                   </div>
                 </div>
 
@@ -365,10 +515,25 @@ const Notes = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  onChange={handleFileUpload}
-                  accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx"
+                  onChange={handleFileSelect}
+                  accept=".pdf,.jpg,.jpeg,.png,.txt,.doc,.docx,.ppt,.pptx"
                   className="hidden"
                 />
+
+                {/* Selected File Info */}
+                {selectedFile && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <FiFile className="w-5 h-5 text-blue-500 mr-2" />
+                        <span className="truncate">{selectedFile.name}</span>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* TITLE */}
                 <div>
@@ -382,20 +547,21 @@ const Notes = () => {
                   />
                 </div>
 
-                {/* CONTENT */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Content</label>
-                  <textarea
-                    value={noteForm.content}
-                    onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
-                    className="input-field h-32"
-                    placeholder="Enter note content..."
-                  />
-                </div>
+                {/* CONTENT (Only for text notes or additional notes) */}
+                {noteType === 'text' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Content</label>
+                    <textarea
+                      value={noteForm.content}
+                      onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
+                      className="input-field h-32"
+                      placeholder="Enter note content..."
+                    />
+                  </div>
+                )}
 
                 {/* TAGS + SUBJECT */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                   <div>
                     <label className="block text-sm font-medium mb-2">Tags</label>
                     <input
@@ -416,7 +582,6 @@ const Notes = () => {
                       placeholder="Mathematics, Programming, etc."
                     />
                   </div>
-
                 </div>
 
                 {/* ACTION BUTTONS */}
@@ -426,17 +591,81 @@ const Notes = () => {
                   </button>
 
                   <button
-                    onClick={handleTextNoteSubmit}
-                    disabled={uploading || !noteForm.title.trim()}
+                    onClick={handleSubmit}
+                    disabled={uploading || !noteForm.title.trim() || (noteType === 'file' && !selectedFile)}
                     className="btn-primary px-6"
                   >
-                    {uploading ? 'Saving...' : 'Save Note'}
+                    {uploading ? (
+                      noteType === 'file' ? 'Uploading...' : 'Saving...'
+                    ) : (
+                      noteType === 'file' ? 'Upload File' : 'Save Note'
+                    )}
                   </button>
                 </div>
-
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* PREVIEW MODAL */}
+      {previewModal.isOpen && previewModal.note && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">{previewModal.note.title}</h3>
+              <button onClick={closePreview} className="text-gray-500 hover:text-gray-700">
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 h-[70vh]">
+              {previewModal.note.fileType?.includes('image') ? (
+                <div className="h-full flex items-center justify-center">
+                  <img 
+                    src={previewModal.note.fileUrl} 
+                    alt={previewModal.note.title}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              ) : previewModal.note.fileType?.includes('pdf') || previewModal.note.title?.endsWith('.pdf') ? (
+                <div className="h-full">
+                  <iframe 
+                    src={previewModal.note.fileUrl} 
+                    title={previewModal.note.title}
+                    className="w-full h-full border-0"
+                  />
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                  <FiFile className="w-16 h-16 text-gray-400 mb-4" />
+                  <h4 className="text-lg font-medium mb-2">Preview not available</h4>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    This file type cannot be previewed in the browser
+                  </p>
+                  <button
+                    onClick={() => handleDownload(previewModal.note)}
+                    className="btn-primary"
+                  >
+                    <FiDownload className="w-4 h-4 mr-2" />
+                    Download File
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button onClick={closePreview} className="btn-secondary px-6">
+                Close
+              </button>
+              <button
+                onClick={() => handleDownload(previewModal.note)}
+                className="btn-primary px-6 flex items-center"
+              >
+                <FiDownload className="w-4 h-4 mr-2" />
+                Download
+              </button>
+            </div>
           </div>
         </div>
       )}
